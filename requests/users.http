@@ -1,0 +1,114 @@
+@baseUrl = http://localhost:5080
+@consultaId = 22222222-2222-2222-2222-222222222222
+
+### 200: obtener JWT de administrador (ejecutar antes de las llamadas autorizadas)
+# @name adminLogin
+POST {{baseUrl}}/api/v1/auth/token
+Content-Type: application/json
+
+{
+  "email": "admin@demo.com",
+  "password": "AdminDemo!2026"
+}
+
+### 200: lista paginada, sin contraseña ni hash
+GET {{baseUrl}}/api/v1/users?page=1&pageSize=20
+Authorization: Bearer {{adminLogin.response.body.$.accessToken}}
+
+### 200: actualización del usuario consulta
+PUT {{baseUrl}}/api/v1/users/{{consultaId}}
+Authorization: Bearer {{adminLogin.response.body.$.accessToken}}
+Content-Type: application/json
+
+{
+  "name": "Usuario Consulta",
+  "email": "consulta@demo.com",
+  "isActive": true
+}
+
+### 200: obtener JWT de consulta
+# @name consultaLogin
+POST {{baseUrl}}/api/v1/auth/token
+Content-Type: application/json
+
+{
+  "email": "consulta@demo.com",
+  "password": "ConsultaDemo!2026"
+}
+
+### 200: consulta también puede listar
+GET {{baseUrl}}/api/v1/users?page=1&pageSize=2
+Authorization: Bearer {{consultaLogin.response.body.$.accessToken}}
+
+### 403: consulta no tiene users.update
+PUT {{baseUrl}}/api/v1/users/{{consultaId}}
+Authorization: Bearer {{consultaLogin.response.body.$.accessToken}}
+Content-Type: application/json
+
+{
+  "name": "Usuario Consulta",
+  "email": "consulta@demo.com",
+  "isActive": true
+}
+
+### 401: usuario inactivo
+POST {{baseUrl}}/api/v1/auth/token
+Content-Type: application/json
+
+{
+  "email": "inactivo@demo.com",
+  "password": "InactivoDemo!2026"
+}
+
+### 401: contraseña incorrecta
+POST {{baseUrl}}/api/v1/auth/token
+Content-Type: application/json
+
+{
+  "email": "admin@demo.com",
+  "password": "incorrecta"
+}
+
+### 401: sin token
+GET {{baseUrl}}/api/v1/users
+
+### 401: token inválido
+GET {{baseUrl}}/api/v1/users
+Authorization: Bearer invalid-token
+
+### 400: paginación inválida
+GET {{baseUrl}}/api/v1/users?page=0&pageSize=101
+Authorization: Bearer {{adminLogin.response.body.$.accessToken}}
+
+### 400: email inválido
+PUT {{baseUrl}}/api/v1/users/{{consultaId}}
+Authorization: Bearer {{adminLogin.response.body.$.accessToken}}
+Content-Type: application/json
+
+{
+  "name": "Consulta",
+  "email": "no-es-email",
+  "isActive": true
+}
+
+### 404: usuario inexistente
+PUT {{baseUrl}}/api/v1/users/99999999-9999-9999-9999-999999999999
+Authorization: Bearer {{adminLogin.response.body.$.accessToken}}
+Content-Type: application/json
+
+{
+  "name": "No existe",
+  "email": "ausente@demo.com",
+  "isActive": true
+}
+
+### 409: email de otro usuario (comparación normalizada)
+PUT {{baseUrl}}/api/v1/users/{{consultaId}}
+Authorization: Bearer {{adminLogin.response.body.$.accessToken}}
+Content-Type: application/json
+
+{
+  "name": "Consulta",
+  "email": "ADMIN@DEMO.COM",
+  "isActive": true
+}
