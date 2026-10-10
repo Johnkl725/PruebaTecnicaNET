@@ -33,10 +33,8 @@ La aplicación lee emisor, audiencia y duración desde `appsettings.json`; la cl
 Ejecuta desde la raíz del repositorio en PowerShell:
 
 ```powershell
-# 1. Crear configuración local una sola vez.
 powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/setup-dev.ps1
 
-# 2. Levantar únicamente SQL Server.
 podman compose up -d
 podman compose ps
 podman compose logs sqlserver
@@ -45,15 +43,12 @@ podman compose logs sqlserver
 Espera a que SQL Server esté `healthy` antes de aplicar la migración. En Docker, sustituye `podman compose` por `docker compose`. El puerto 14333 permite conservar otra instancia local que utilice 1433. El volumen mantiene los datos al detener el contenedor; no cambies la contraseña en `.env` esperando que cambie la de un volumen ya inicializado.
 
 ```powershell
-# 3. Restaurar herramientas y compilar.
 dotnet tool restore
 dotnet restore Users.sln
 dotnet build Users.sln --no-restore
 
-# 4. Crear el esquema mediante la migración versionada.
 dotnet ef database update --project src/Infrastructure --startup-project src/Api
 
-# 5. Arrancar la API y cargar los datos semilla de desarrollo.
 dotnet run --project src/Api --launch-profile http
 ```
 
@@ -79,9 +74,9 @@ Estas contraseñas son exclusivamente datos públicos de demostración; la base 
 
 El body del PUT contiene `name`, `email` e `isActive`; los tres son obligatorios. Los identificadores son GUID. Nombre: 1–100 caracteres; email: hasta 254; `page >= 1`, `pageSize` entre 1 y 100. Una página posterior al último resultado devuelve una lista vacía. El listado incluye usuarios activos e inactivos y nunca proyecta el hash.
 
-En Swagger ejecuta el login, copia `accessToken` y pégalo en **Authorize**, sin el prefijo `Bearer`. También puedes abrir [`requests/users.http`](requests/users.http) con REST Client de VS Code: sus solicitudes nombradas reutilizan el JWT automáticamente. Ejecuta primero los logins de administrador y consulta. Otros clientes HTTP pueden requerir copiar el token manualmente.
+En Swagger ejecuta el login, copia `accessToken` y pégalo en **Authorize**, sin el prefijo `Bearer`. También puedes abrir [`requests/users.http`](requests/users.http) con REST Client de VS Code: la solicitud nombrada del login permite reutilizar el JWT automáticamente. Ejecuta primero el login de administrador. Otros clientes HTTP pueden requerir copiar el token manualmente.
 
-El archivo incluye casos **200, 400, 401, 403, 404 y 409**. También puedes ejecutar `powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/smoke-test.ps1` con la API y los datos iniciales disponibles. Para comprobar caducidad manualmente, configura `Jwt__DurationMinutes=1` antes de arrancar, solicita un token y repite el GET después de 60 segundos: debe responder 401, sin margen adicional de reloj.
+El archivo contiene una llamada a cada endpoint requerido y cubre los códigos **200, 400, 401, 403, 404 y 409**. Para comprobar caducidad manualmente, configura `Jwt__DurationMinutes=1` antes de arrancar, solicita un token y repite el GET después de 60 segundos: debe responder 401, sin margen adicional de reloj.
 
 ## Arquitectura y decisiones
 
@@ -92,7 +87,7 @@ src/Infrastructure  Adaptadores EF Core, SQL Server, PBKDF2 y JWT; migraciones y
 src/Api             Controllers, políticas, errores y composición de dependencias.
 tests/Application.Tests  Pruebas unitarias con un repositorio falso, sin base real.
 requests/           Solicitudes HTTP para la revisión.
-scripts/            Configuración local y verificación HTTP.
+scripts/            Generación de la configuración local.
 ```
 
 - **Puertos y adaptadores:** Application define las interfaces de persistencia, hash y token; Infrastructure las implementa. Api solo referencia Infrastructure para registrar dependencias; la semilla se ejecuta mediante un servicio de arranque registrado por Infrastructure. Domain y Application no conocen EF, ASP.NET Core ni JWT.
@@ -111,7 +106,7 @@ dotnet test Users.sln
 dotnet ef migrations has-pending-model-changes --project src/Infrastructure --startup-project src/Api
 ```
 
-Las pruebas xUnit cubren actualización correcta, normalización, email propio y ajeno, usuario ausente, entradas inválidas, cancelación y conflicto al persistir. También cubren credenciales, usuario inactivo y paginación. No necesitan SQL Server, secretos ni un contenedor. No se estableció un porcentaje de cobertura artificial.
+Las pruebas xUnit del caso de uso de actualización cubren actualización correcta, normalización, email propio y ajeno, usuario ausente, entradas inválidas, cancelación y conflicto al persistir. No necesitan SQL Server, secretos ni un contenedor. No se estableció un porcentaje de cobertura artificial.
 
 Para un cambio posterior del modelo:
 
@@ -121,13 +116,3 @@ dotnet ef database update --project src/Infrastructure --startup-project src/Api
 ```
 
 Las migraciones y su snapshot se versionan; no se usa `EnsureCreated` ni scripts SQL manuales para crear el esquema.
-
-## Validación realizada
-
-Comprobado localmente con SDK **8.0.425** y SQL Server de Compose:
-
-- Solución compilada sin advertencias ni errores; **23 pruebas unitarias correctas**.
-- Migración aplicada a una base nueva y modelo sin cambios pendientes respecto al snapshot.
-- **16 verificaciones HTTP correctas**, incluidos los seis códigos de respuesta solicitados.
-- Rechazo de JWT expirado, firma incorrecta, emisor incorrecto y audiencia incorrecta.
-- Swagger con Bearer, tres usuarios semilla con hashes PBKDF2 y segundo arranque sin duplicar datos.

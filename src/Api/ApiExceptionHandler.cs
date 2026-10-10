@@ -20,16 +20,21 @@ public sealed class ApiExceptionHandler(IProblemDetailsService problems, ILogger
         if (status == 500) logger.LogError(exception, "Error no controlado. TraceId: {TraceId}", context.TraceIdentifier);
         context.Response.StatusCode = status;
         if (status == 401) context.Response.Headers.WWWAuthenticate = "Bearer";
-        await problems.WriteAsync(new ProblemDetailsContext
+        var problemDetails = new ProblemDetails
+        {
+            Status = status,
+            Title = status == 500 ? "Ocurrió un error interno." : exception.Message,
+            Extensions = { ["traceId"] = context.TraceIdentifier }
+        };
+        if (!await problems.TryWriteAsync(new ProblemDetailsContext
         {
             HttpContext = context,
-            ProblemDetails = new ProblemDetails
-            {
-                Status = status,
-                Title = status == 500 ? "Ocurrió un error interno." : exception.Message,
-                Extensions = { ["traceId"] = context.TraceIdentifier }
-            }
-        });
+            ProblemDetails = problemDetails
+        }))
+        {
+            context.Response.ContentType = "application/problem+json";
+            await context.Response.WriteAsJsonAsync(problemDetails, cancellationToken);
+        }
         return true;
     }
 }

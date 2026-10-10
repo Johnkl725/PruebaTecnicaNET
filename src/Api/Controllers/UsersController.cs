@@ -6,6 +6,7 @@ namespace Api.Controllers;
 
 [ApiController]
 [Authorize]
+[Produces("application/json")]
 [Route("api/v1/users")]
 public sealed class UsersController(IListUsers list, IUpdateUser update) : ControllerBase
 {

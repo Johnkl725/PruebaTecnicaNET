@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace Api.Controllers;
 
 [ApiController]
+[Produces("application/json")]
 [Route("api/v1/auth")]
 public sealed class AuthController(IAuthenticateUser authenticate) : ControllerBase
 {

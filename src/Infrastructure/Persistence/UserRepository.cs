@@ -36,7 +36,6 @@ public sealed class UserRepository(UsersDbContext db) : IUserRepository
             exception.InnerException is SqlException { Number: 2601 or 2627 } &&
             exception.Entries.All(entry => entry.Entity is User && entry.State == EntityState.Modified))
         {
-            // Also covers two concurrent updates that passed the preliminary email check.
             throw new EmailConflictException();
         }
     }

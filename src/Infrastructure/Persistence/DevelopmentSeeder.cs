@@ -9,7 +9,6 @@ internal sealed class DevelopmentSeeder(UsersDbContext db, IPasswordHasher passw
 {
     public async Task SeedAsync(CancellationToken cancellationToken)
     {
-        // A transaction prevents a partial initial seed; subsequent runs preserve edited users.
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
         var read = await db.Permissions.SingleOrDefaultAsync(x => x.Id == 1, cancellationToken);
         if (read is null) { read = new Permission(1, Application.Permissions.UsersRead); db.Permissions.Add(read); }
